@@ -1,0 +1,11 @@
+/* 
+ * This file is intentionally minimal.
+ * The library re-exports react-pdf's required CSS for user convenience.
+ * No custom styles are needed for the highlighting functionality.
+ */
+
+/* React PDF required styles are imported in PdfHighlighter.tsx:
+ * - react-pdf/dist/Page/AnnotationLayer.css
+ * - react-pdf/dist/Page/TextLayer.css
+ * These are bundled into the distributed CSS file.
+ */
