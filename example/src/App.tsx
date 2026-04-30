@@ -70,6 +70,7 @@ function App() {
         file: PDF_URL,
         highlights: activeHighlights,
         fileName: 'annotated-document.pdf',
+        pdfjs: pdfjs // Pass the same instance to guarantee 100% worker version match!
       });
     } catch (err) {
       console.error('Download failed:', err);

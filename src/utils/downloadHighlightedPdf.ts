@@ -185,14 +185,16 @@ export async function downloadHighlightedPdf(
     const pdfBytes = await getPdfBytes(file);
 
     // Step 2: Ensure pdfjs worker is configured
-    if (!GlobalWorkerOptions.workerSrc) {
-        const pdfjs = await import('pdfjs-dist');
-        const version = pdfjs.version;
-        GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${version}/build/pdf.worker.min.mjs`;
+    // If the user passed their own pdfjs instance (from react-pdf), use it to guarantee version match!
+    const pdfjsLib = options.pdfjs || await import('pdfjs-dist');
+    
+    if (!pdfjsLib.GlobalWorkerOptions.workerSrc) {
+        const version = pdfjsLib.version;
+        pdfjsLib.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${version}/build/pdf.worker.min.mjs`;
     }
 
     // Step 3: Load PDF with pdfjs
-    const loadingTask = getDocument({ data: new Uint8Array(pdfBytes) });
+    const loadingTask = pdfjsLib.getDocument({ data: new Uint8Array(pdfBytes) });
     const pdfDoc = await loadingTask.promise;
     const numPages = pdfDoc.numPages;
 

@@ -125,4 +125,10 @@ export interface DownloadHighlightedPdfOptions {
      * @default 2
      */
     renderScale?: number;
+
+    /**
+     * Optional pdfjs instance from your main application (e.g., from 'react-pdf').
+     * Pass this to guarantee 100% version matching in strict environments.
+     */
+    pdfjs?: any;
 }
