@@ -19,12 +19,13 @@ export default defineConfig({
       fileName: (format) => `react-pdf-highlighter.${format}.js`,
     },
     rollupOptions: {
-      external: ['react', 'react-dom', 'react-pdf'],
+      external: ['react', 'react-dom', 'react-pdf', 'pdfjs-dist'],
       output: {
         globals: {
           react: 'React',
           'react-dom': 'ReactDOM',
           'react-pdf': 'ReactPDF',
+          'pdfjs-dist': 'pdfjsLib',
         },
       },
     },

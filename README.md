@@ -1,12 +1,18 @@
 # React PDF Highlighter
 
-A lightweight, production-ready React library for rendering PDFs with text highlighting support. Built on top of `react-pdf` with a simple, intuitive API.
+A lightweight, production-ready React library for rendering PDFs with text highlighting support and annotated PDF export. Built on top of `react-pdf` with a simple, intuitive API.
+
+## Demo
+
+![React PDF Highlighter Demo](demo.webp)
 
 ## Features
 
 ✨ **Simple API** - Just pass a PDF file and an array of highlights  
 🎨 **Customizable Colors** - Set default or per-highlight colors  
 🔤 **Case-Insensitive Matching** - Optional case-insensitive text matching  
+📥 **Download with Highlights** - Export PDFs with highlights baked in using `downloadHighlightedPdf()`  
+🔍 **Zoom Support** - Highlights persist across zoom level changes  
 📱 **Responsive** - Automatically adapts to container width  
 ⚡ **Performance Optimized** - Efficient DOM manipulation and memoization  
 🔄 **Dynamic Updates** - Add/remove highlights on the fly  
@@ -16,7 +22,7 @@ A lightweight, production-ready React library for rendering PDFs with text highl
 ## Installation
 
 ```bash
-npm install react-pdf-highlight-viewer react react-dom react-pdf
+npm install react-pdf-highlight-viewer react react-dom react-pdf pdfjs-dist
 ```
 
 ### Peer Dependencies
@@ -26,6 +32,7 @@ This library requires the following peer dependencies:
 - `react` ^18.0.0 || ^19.0.0
 - `react-dom` ^18.0.0 || ^19.0.0
 - `react-pdf` ^10.3.0
+- `pdfjs-dist` ^4.0.0 || ^5.0.0
 
 ## Quick Start
 
@@ -77,6 +84,34 @@ interface Highlight {
   caseSensitive?: boolean; // Whether to match case-sensitively (default: true)
 }
 ```
+
+### `downloadHighlightedPdf(options)`
+
+Utility function to download a PDF with highlight annotations baked directly into the output file. Uses a canvas-based approach with jsPDF for precise coordinate alignment.
+
+```typescript
+import { downloadHighlightedPdf } from 'react-pdf-highlight-viewer';
+
+await downloadHighlightedPdf({
+  file: 'https://example.com/document.pdf',
+  highlights: [
+    { pageNumber: 1, content: 'important text', color: '#ffeb3b' }
+  ],
+  fileName: 'annotated-document.pdf'
+});
+```
+
+#### Options
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `file` | `string \| ArrayBuffer \| Uint8Array` | **required** | PDF source (URL, ArrayBuffer, or Uint8Array) |
+| `highlights` | `Highlight[]` | **required** | Array of highlights to embed |
+| `fileName` | `string` | `'highlighted.pdf'` | Output filename for the download |
+| `defaultHighlightColor` | `string` | `'#ffeb3b'` | Default color for highlights without a color |
+| `defaultCaseSensitive` | `boolean` | `true` | Default case sensitivity |
+| `highlightOpacity` | `number` | `0.35` | Opacity of highlight rectangles (0 to 1) |
+| `renderScale` | `number` | `2` | Canvas render scale. Higher = sharper but larger files |
 
 ## Usage Examples
 
@@ -136,48 +171,58 @@ function CaseInsensitiveExample() {
     />
   );
 }
+```
 
-// Set default case-insensitivity for all highlights
-function GlobalCaseInsensitive() {
+### Zoom with Highlights
+
+Highlights automatically persist when zooming in or out. Pass `scale` via `pageProps`:
+
+```tsx
+function ZoomExample() {
+  const [scale, setScale] = useState(1.0);
+
   return (
-    <PdfHighlighter 
-      file="/document.pdf"
-      defaultCaseSensitive={false}  // All highlights are case-insensitive by default
-      highlights={[
-        { pageNumber: 1, content: "sample text" },  // Case-insensitive
-        { pageNumber: 2, content: "another example" },  // Case-insensitive
-        // Override to be case-sensitive for this one
-        { pageNumber: 3, content: "ExactCase", caseSensitive: true }
-      ]}
-    />
+    <div>
+      <button onClick={() => setScale(s => Math.min(s + 0.25, 3))}>Zoom In</button>
+      <button onClick={() => setScale(s => Math.max(s - 0.25, 0.5))}>Zoom Out</button>
+      <span>{Math.round(scale * 100)}%</span>
+
+      <PdfHighlighter 
+        file="/document.pdf"
+        highlights={[{ pageNumber: 1, content: "highlight me" }]}
+        pageProps={{ scale }}
+      />
+    </div>
   );
 }
 ```
 
-### Using React-PDF Props
-
-The component extends `react-pdf`'s `DocumentProps`, so you can pass any Document or Page props:
+### Download PDF with Highlights
 
 ```tsx
-function AdvancedExample() {
+import { PdfHighlighter, downloadHighlightedPdf } from 'react-pdf-highlight-viewer';
+
+function DownloadExample() {
+  const pdfUrl = '/document.pdf';
+  const highlights = [
+    { pageNumber: 1, content: "Important finding", color: "#4caf50" },
+    { pageNumber: 2, content: "Key result", color: "#2196f3" }
+  ];
+
+  const handleDownload = async () => {
+    await downloadHighlightedPdf({
+      file: pdfUrl,
+      highlights,
+      fileName: 'annotated-document.pdf',
+      highlightOpacity: 0.4
+    });
+  };
+
   return (
-    <PdfHighlighter 
-      file="/document.pdf"
-      highlights={[{ pageNumber: 1, content: "highlight me" }]}
-      
-      // Document props (from react-pdf)
-      onLoadSuccess={(pdf) => console.log('Loaded', pdf.numPages, 'pages')}
-      onLoadError={(error) => console.error('Load error:', error)}
-      onSourceSuccess={() => console.log('Source loaded')}
-      
-      // Page props (applied to all pages)
-      pageProps={{
-        scale: 1.5,                    // Zoom level
-        renderTextLayer: true,         // Enable text selection
-        renderAnnotationLayer: false,  // Disable annotations
-        renderMode: 'canvas'           // Render mode: 'canvas' | 'svg'
-      }}
-    />
+    <div>
+      <button onClick={handleDownload}>Download Annotated PDF</button>
+      <PdfHighlighter file={pdfUrl} highlights={highlights} />
+    </div>
   );
 }
 ```
@@ -238,31 +283,28 @@ function FileUploadExample() {
 }
 ```
 
-### Responsive Width
+### Using React-PDF Props
+
+The component extends `react-pdf`'s `DocumentProps`, so you can pass any Document or Page props:
 
 ```tsx
-function ResponsiveExample() {
-  return (
-    <div style={{ maxWidth: '800px', margin: '0 auto' }}>
-      {/* PDF will adapt to container width */}
-      <PdfHighlighter 
-        file="/document.pdf"
-        highlights={[]}
-      />
-    </div>
-  );
-}
-```
-
-### Fixed Width
-
-```tsx
-function FixedWidthExample() {
+function AdvancedExample() {
   return (
     <PdfHighlighter 
       file="/document.pdf"
-      width={600}  // Fixed 600px width
-      highlights={[]}
+      highlights={[{ pageNumber: 1, content: "highlight me" }]}
+      
+      // Document props (from react-pdf)
+      onLoadSuccess={(pdf) => console.log('Loaded', pdf.numPages, 'pages')}
+      onLoadError={(error) => console.error('Load error:', error)}
+      
+      // Page props (applied to all pages)
+      pageProps={{
+        scale: 1.5,                    // Zoom level
+        renderTextLayer: true,         // Enable text selection
+        renderAnnotationLayer: false,  // Disable annotations
+        renderMode: 'canvas'           // Render mode: 'canvas' | 'svg'
+      }}
     />
   );
 }
@@ -272,16 +314,16 @@ function FixedWidthExample() {
 
 ### Text Matching
 
-By default, the `content` field must **exactly match** the PDF's internal text representation:
+By default, the `content` field must **closely match** the PDF's internal text representation:
 
 - ✅ Correct: `"Hello World"` (if PDF has this exact text)
 - ✅ Also works: `"hello world"` with `caseSensitive: false`
-- ❌ Wrong: `"Hello  World"` (extra space - whitespace must still match exactly)
+- ✅ Whitespace-flexible: The library handles minor spacing differences between your text and the PDF's internal representation
 
 **Tips**: 
 - Use `caseSensitive: false` to ignore case differences
-- Copy text directly from the PDF viewer to ensure exact matching
-- Whitespace must always match exactly, even with case-insensitive mode
+- Copy text directly from the PDF viewer to ensure accurate matching
+- The library uses whitespace-flexible matching for `downloadHighlightedPdf()` — minor space differences are handled automatically
 
 ### Whitespace Issues
 
@@ -292,23 +334,18 @@ PDFs sometimes store text differently than it appears visually. If highlighting 
 3. Copy the exact text from the DOM
 4. Use that text in your `content` field
 
-Example:
-```tsx
-// Visual text: "purus aliquam"
-// PDF internal: "purusaliquam" (no space!)
-
-// Use the internal representation:
-{ pageNumber: 1, content: "purusaliquam" }
-```
-
 ## Troubleshooting
 
 ### Highlights Not Appearing
 
-1. **Check text matching**: Ensure `content` exactly matches PDF text
+1. **Check text matching**: Ensure `content` closely matches PDF text
 2. **Verify page number**: Page numbers are 1-indexed (first page = 1)
 3. **Check console**: Look for errors or warnings
 4. **Inspect DOM**: Verify text exists in `.react-pdf__Page__textContent`
+
+### Highlights Disappearing After Zoom
+
+This was fixed in v1.2.0. The library now detects when the text layer is rebuilt (e.g., after a zoom change) and automatically re-applies highlights to the new DOM elements.
 
 ### PDF Not Loading
 
@@ -325,6 +362,24 @@ For large PDFs with many highlights:
 3. Use `React.memo` on parent components
 
 ## Changelog
+
+### v1.2.0 (2026-04-30)
+
+**Added:**
+- ✅ `downloadHighlightedPdf()` utility — export PDFs with highlights baked in using jsPDF + canvas rendering
+- ✅ Whitespace-flexible text matching in download utility — handles spacing differences between PDF text items and highlight strings
+- ✅ Multiple simultaneous highlights — select and display multiple highlights at once without overwriting
+- ✅ Zoom persistence — highlights survive scale changes via proper text layer lifecycle management
+- ✅ Input validation and edge case hardening (color parsing, stale DOM detection, bounds checks)
+- ✅ Demo recording included in package
+
+**Fixed:**
+- 🐛 Multi-highlight overwrite bug — highlights on shared spans no longer destroy each other (single-pass rebuild)
+- 🐛 Zoom highlight loss — text layer re-render now correctly re-captures spans and re-applies marks
+- 🐛 Long text passage matching — whitespace-flexible matching prevents false negatives from PDF spacing
+
+**Dependencies:**
+- Added `jspdf` as a runtime dependency for PDF export
 
 ### v1.1.4 (2026-02-14)
 
@@ -377,3 +432,4 @@ Contributions are welcome! Please open an issue or PR on GitHub.
 Built with:
 - [react-pdf](https://github.com/wojtekmaj/react-pdf) - PDF rendering
 - [PDF.js](https://mozilla.github.io/pdf.js/) - PDF parsing (Mozilla)
+- [jsPDF](https://github.com/parallax/jsPDF) - PDF generation for annotated download

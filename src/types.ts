@@ -80,3 +80,49 @@ export interface PdfHighlighterProps extends Omit<DocumentProps, 'children'> {
      */
     pageProps?: Omit<PageProps, 'pageNumber' | 'width' | 'onGetTextSuccess'>;
 }
+
+/**
+ * Options for the downloadHighlightedPdf utility function
+ */
+export interface DownloadHighlightedPdfOptions {
+    /**
+     * Source of the PDF file
+     * Can be a URL string, ArrayBuffer, or Uint8Array
+     */
+    file: string | ArrayBuffer | Uint8Array;
+
+    /**
+     * Array of text highlights to embed into the downloaded PDF
+     */
+    highlights: Highlight[];
+
+    /**
+     * Output filename for the downloaded PDF
+     * @default 'highlighted.pdf'
+     */
+    fileName?: string;
+
+    /**
+     * Default highlight color (hex) for highlights without a specific color
+     * @default '#ffeb3b'
+     */
+    defaultHighlightColor?: string;
+
+    /**
+     * Default case sensitivity for highlights without a specific caseSensitive value
+     * @default true
+     */
+    defaultCaseSensitive?: boolean;
+
+    /**
+     * Opacity of highlight rectangles (0 to 1)
+     * @default 0.35
+     */
+    highlightOpacity?: number;
+
+    /**
+     * Canvas render scale factor. Higher values produce sharper output but larger files.
+     * @default 2
+     */
+    renderScale?: number;
+}
