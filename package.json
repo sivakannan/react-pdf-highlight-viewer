@@ -34,7 +34,7 @@
   "files": [
     "dist",
     "README.md",
-    "demo.webp"
+    "demo.gif"
   ],
   "scripts": {
     "dev": "vite",

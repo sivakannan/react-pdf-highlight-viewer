@@ -4,7 +4,7 @@ A lightweight, production-ready React library for rendering PDFs with text highl
 
 ## Demo
 
-![React PDF Highlighter Demo](demo.webp)
+![React PDF Highlighter Demo](demo.gif)
 
 ## Features
 
