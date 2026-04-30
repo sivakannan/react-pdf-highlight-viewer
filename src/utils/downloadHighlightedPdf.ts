@@ -1,5 +1,4 @@
 import { jsPDF } from 'jspdf';
-import { getDocument, GlobalWorkerOptions } from 'pdfjs-dist';
 import type { Highlight, DownloadHighlightedPdfOptions } from '../types';
 
 /**
