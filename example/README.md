@@ -31,9 +31,8 @@ The `App.tsx` file provides a great reference implementation for how to integrat
 
 ## Notes on PDF.js Worker
 
-In this example, we import the worker directly from the `pdfjs-dist` bundle:
+In this example, we configure the PDF.js worker to use the CDN version that exactly matches the `react-pdf` API version:
 ```typescript
-import workerSrc from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
-pdfjs.GlobalWorkerOptions.workerSrc = workerSrc;
+pdfjs.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
 ```
-This is the recommended approach for Vite projects as it guarantees the worker version exactly matches the `pdfjs-dist` library version installed in your `node_modules`, preventing fatal mismatched-version errors.
+This is the recommended approach as it completely eliminates "API vs Worker Version Mismatch" errors!

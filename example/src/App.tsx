@@ -1,13 +1,13 @@
 import { useState } from 'react';
 import { pdfjs } from 'react-pdf';
-import workerSrc from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 import { PdfHighlighter, downloadHighlightedPdf } from 'react-pdf-highlight-viewer';
 import type { Highlight } from 'react-pdf-highlight-viewer';
 import 'react-pdf-highlight-viewer/dist/react-pdf-highlight-viewer.css';
 import './App.css';
 
-// Configure the local worker to avoid corporate proxy/unpkg issues!
-pdfjs.GlobalWorkerOptions.workerSrc = workerSrc;
+// Configure the worker using the exact version matched by react-pdf to prevent Version Mismatch errors!
+pdfjs.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
+
 const PDF_URL = 'https://ontheline.trincoll.edu/images/bookdown/sample-local-pdf.pdf';
 
 const snippetLabels = [
