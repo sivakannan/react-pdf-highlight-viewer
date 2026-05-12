@@ -270,6 +270,37 @@ function DynamicExample() {
 }
 ```
 
+### Interactive Text & Area Highlighting (New in v1.3.0)
+
+Users can seamlessly drag to select text or draw bounding boxes for images and charts:
+
+```tsx
+function InteractiveExample() {
+  const [highlights, setHighlights] = useState([]);
+  const [isAreaMode, setIsAreaMode] = useState(false);
+
+  // Fired when the user selects text or draws an area and clicks "Save"
+  const handleHighlightAdd = (newHighlight) => {
+    setHighlights(prev => [...prev, newHighlight]);
+  };
+
+  return (
+    <div>
+      <button onClick={() => setIsAreaMode(!isAreaMode)}>
+        {isAreaMode ? "Disable Area Draw" : "Enable Area Draw"}
+      </button>
+      
+      <PdfHighlighter 
+        file="/document.pdf"
+        highlights={highlights}
+        onHighlightAdd={handleHighlightAdd}    // Enables the floating popover
+        enableAreaSelection={isAreaMode}       // Toggles drawing bounding boxes
+      />
+    </div>
+  );
+}
+```
+
 ### With File Upload
 
 ```tsx
