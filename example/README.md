@@ -1,73 +1,39 @@
-# React + TypeScript + Vite
+# React PDF Highlighter - Example App
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+This is the official demonstration app for the `react-pdf-highlight-viewer` library. It provides a full, interactive UI for testing out the library's features, including text highlighting, area drawing, and native PDF export.
 
-Currently, two official plugins are available:
+## Running the Example
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+Make sure you are in the `example` directory, then run:
 
-## React Compiler
-
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the ESLint configuration
-
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
-
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+npm install
+npm run dev
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+This will start a Vite development server (typically at `http://localhost:5173`).
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+## Features Demonstrated
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+The `App.tsx` file provides a great reference implementation for how to integrate the library into a real-world application. It demonstrates:
+
+1. **Worker Configuration**: How to correctly import and attach the local `pdfjs-dist` worker (bypassing CDN/proxy issues) to ensure fast, reliable rendering.
+2. **State Management**: Using standard React `useState` to manage a collection of highlight objects.
+3. **Interactive Highlighting**: Hooking into the `onHighlightAdd` callback to capture text selections and user comments via the native floating popover.
+4. **Area Drawing**: Toggling the `enableAreaSelection` prop via a UI button to let users draw coordinate-based bounding boxes.
+5. **PDF Export**: Wiring up a "Download" button to the `downloadHighlightedPdf` utility to export the annotated PDF natively.
+6. **Zoom Controls**: Managing a `scale` state and passing it down to `pageProps` so highlights automatically resize when zooming in and out.
+
+## Structure
+
+- `src/App.tsx` - The main application code containing the sidebar and the PDF viewer component.
+- `src/App.css` - Global resets and basic styling.
+
+## Notes on PDF.js Worker
+
+In this example, we import the worker directly from the `pdfjs-dist` bundle:
+```typescript
+import workerSrc from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
+pdfjs.GlobalWorkerOptions.workerSrc = workerSrc;
 ```
+This is the recommended approach for Vite projects as it guarantees the worker version exactly matches the `pdfjs-dist` library version installed in your `node_modules`, preventing fatal mismatched-version errors.
