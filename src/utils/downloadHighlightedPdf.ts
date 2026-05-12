@@ -231,6 +231,16 @@ export async function downloadHighlightedPdf(
             canvas: canvas,
         }).promise;
 
+        // Collect annotations to add natively to the PDF
+        interface PdfAnnotation {
+            x: number;
+            y: number;
+            w: number;
+            h: number;
+            content: string;
+        }
+        const annotationsForPage: PdfAnnotation[] = [];
+
         // If this page has highlights, draw them
         const pageHighlights = highlightsByPage.get(pageNum);
         if (pageHighlights && pageHighlights.length > 0) {
@@ -310,11 +320,37 @@ export async function downloadHighlightedPdf(
 
             // For each highlight, find matching text and draw rectangles
             for (const highlight of pageHighlights) {
-                const { content, caseSensitive, color } = highlight;
+                const { content, caseSensitive, color, comment, boundingRect } = highlight;
+                const highlightColor = color || defaultHighlightColor;
+
+                // Handle Coordinate-Based Area Highlights
+                if (boundingRect) {
+                    // Convert percentage coordinates to canvas pixel coordinates
+                    const rectX = (boundingRect.left / 100) * viewport.width;
+                    const rectY = (boundingRect.top / 100) * viewport.height;
+                    const rectW = (boundingRect.width / 100) * viewport.width;
+                    const rectH = (boundingRect.height / 100) * viewport.height;
+
+                    // Draw the area rectangle on the canvas
+                    ctx.fillStyle = colorToRgba(highlightColor, highlightOpacity);
+                    ctx.fillRect(rectX, rectY, rectW, rectH);
+
+                    // Collect comment for native PDF annotation
+                    if (comment) {
+                        annotationsForPage.push({
+                            x: rectX / renderScale,
+                            y: rectY / renderScale,
+                            w: rectW / renderScale,
+                            h: rectH / renderScale,
+                            content: comment
+                        });
+                    }
+                    continue; // Skip the text-matching logic below
+                }
+
                 if (!content) continue;
 
                 const isCaseSensitive = caseSensitive !== undefined ? caseSensitive : defaultCaseSensitive;
-                const highlightColor = color || defaultHighlightColor;
 
                 // Use whitespace-flexible matching
                 const match = flexibleMatch(fullText, content, isCaseSensitive);
@@ -323,8 +359,8 @@ export async function downloadHighlightedPdf(
                 const { start: startIdx, end: endIdx } = match;
 
                 // Map character indices to text items and draw highlight rects
-                ctx.fillStyle = colorToRgba(highlightColor, highlightOpacity);
                 let charPos = 0;
+                let commentDrawn = false;
 
                 for (const entry of itemsWithSpaces) {
                     const entryStart = charPos;
@@ -345,7 +381,20 @@ export async function downloadHighlightedPdf(
 
                         // Guard against negative or zero dimensions
                         if (rectW > 0 && item.height > 0) {
+                            ctx.fillStyle = colorToRgba(highlightColor, highlightOpacity);
                             ctx.fillRect(rectX, item.y, rectW, item.height);
+
+                            // Collect comment for native PDF annotation once per highlight
+                            if (comment && !commentDrawn) {
+                                annotationsForPage.push({
+                                    x: rectX / renderScale,
+                                    y: item.y / renderScale,
+                                    w: rectW / renderScale,
+                                    h: item.height / renderScale,
+                                    content: comment
+                                });
+                                commentDrawn = true;
+                            }
                         }
                     }
 
@@ -372,6 +421,23 @@ export async function downloadHighlightedPdf(
         }
 
         pdf!.addImage(imgData, 'JPEG', 0, 0, pageWidthPt, pageHeightPt);
+
+        // Add native PDF annotations for Acrobat compatibility
+        if (typeof (pdf! as any).createAnnotation === 'function') {
+            for (const annot of annotationsForPage) {
+                (pdf! as any).createAnnotation({
+                    type: 'text',
+                    title: 'Comment',
+                    bounds: {
+                        x: annot.x,
+                        y: annot.y,
+                        w: annot.w,
+                        h: annot.h
+                    },
+                    contents: annot.content
+                });
+            }
+        }
 
         // Release canvas memory
         canvas.width = 0;

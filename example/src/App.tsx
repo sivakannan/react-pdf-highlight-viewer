@@ -20,18 +20,21 @@ const snippetLabels = [
 ];
 
 const textSnippets = [
-  { pageNumber: 1, content: 'This PDF is three pages long', color: '#4caf50' },
+  { pageNumber: 1, content: 'This PDF is three pages long', color: '#4caf50', comment: 'Important summary fact! Important summary fact! Important summary fact! Important summary fact! Important summary fact! Important summary fact! Important summary fact! Important summary fact! Important summary fact! Important summary fact! Important summary fact!' },
   { pageNumber: 1, content: 'metus. Sed aliquet risus a tortor. Integer id quam. Morbi mi. Quisque nisl felis, venenatis tristique', color: '#2196f3' },
-  { pageNumber: 1, content: 'Sed dignissim lacinia nunc. Curabitur tortor. Pellentesque nibh', color: '#ff9800' },
+  { pageNumber: 1, content: 'Sed dignissim lacinia nunc. Curabitur tortor. Pellentesque nibh', color: '#ff9800', comment: 'Please translate this part to English' },
   { pageNumber: 1, content: 'Ut eu diam at pede suscipit sodales. Aenean lectus elit, fermentum non, convallis id, sagittis at,neque.', color: '#9c27b0' },
   { pageNumber: 3, content: 'Proin ut ligula vel nunc egestas porttitor. Morbi lectus risus, iaculis vel, suscipit quis, luctus', color: '#f44336' },
-  { pageNumber: 1, content: 'sample pdf', caseSensitive: false, color: '#00bcd4' }
+  { pageNumber: 1, content: 'sample pdf', caseSensitive: false, color: '#00bcd4' },
+  { pageNumber: 2, boundingRect: { left: 15, top: 20, width: 70, height: 35 }, color: '#ffeb3b', comment: 'This chart shows important data!' }
 ];
 
 function App() {
+  const [snippets, setSnippets] = useState<Highlight[]>(textSnippets);
   const [selectedIndices, setSelectedIndices] = useState<Set<number>>(new Set());
   const [isDownloading, setIsDownloading] = useState(false);
   const [scale, setScale] = useState(1.0);
+  const [isAreaMode, setIsAreaMode] = useState(false);
 
   const zoomIn = () => setScale(prev => Math.min(prev + 0.25, 3.0));
   const zoomOut = () => setScale(prev => Math.max(prev - 0.25, 0.5));
@@ -60,7 +63,23 @@ function App() {
 
   const clearAll = () => setSelectedIndices(new Set());
 
-  const activeHighlights = Array.from(selectedIndices).map(i => textSnippets[i]);
+  const handleHighlightAdd = (newHighlight: Omit<Highlight, 'id'>) => {
+    setSnippets(prev => {
+      const next = [...prev, newHighlight];
+      // Automatically select the new highlight
+      setSelectedIndices(prevSelected => {
+        const nextSelected = new Set(prevSelected);
+        nextSelected.add(next.length - 1);
+        return nextSelected;
+      });
+      return next;
+    });
+  };
+
+  const activeHighlights = Array.from(selectedIndices).map(i => ({
+    ...snippets[i],
+    id: `highlight-${i}`
+  }));
 
   const handleDownload = async () => {
     if (activeHighlights.length === 0) return;
@@ -95,33 +114,41 @@ function App() {
           Click to toggle highlights (multiple allowed)
         </p>
 
-        {textSnippets.map((snippet, index) => {
+        {snippets.map((snippet, index) => {
           const isSelected = selectedIndices.has(index);
           return (
             <div
               key={index}
-              onClick={() => toggleHighlight(index)}
+              onClick={() => {
+                toggleHighlight(index);
+                if (!isSelected) {
+                  // Wait a tick for the highlight to be rendered if it wasn't already
+                  setTimeout(() => {
+                    const el = document.getElementById(`highlight-${index}`);
+                    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                  }, 100);
+                }
+              }}
               style={{
-                padding: '12px',
-                marginBottom: '10px',
-                backgroundColor: isSelected ? '#ffeb3b' : 'white',
-                border: `2px solid ${isSelected ? snippet.color : '#ddd'}`,
-                borderRadius: '4px',
+                padding: '16px',
+                borderBottom: '1px solid #ddd',
+                backgroundColor: isSelected ? 'rgba(0,0,0,0.04)' : 'transparent',
+                borderLeft: isSelected ? `4px solid ${snippet.color}` : '4px solid transparent',
                 cursor: 'pointer',
                 transition: 'all 0.2s',
-                boxShadow: isSelected ? '0 2px 4px rgba(0,0,0,0.2)' : 'none',
                 position: 'relative',
               }}
             >
               <div style={{
                 fontWeight: 'bold',
-                marginBottom: '5px',
-                color: snippet.color,
+                marginBottom: '8px',
+                color: '#333',
                 display: 'flex',
                 justifyContent: 'space-between',
-                alignItems: 'center',
+                alignItems: 'flex-start',
+                fontSize: '14px',
               }}>
-                <span>Page {snippet.pageNumber}: {snippetLabels[index]}</span>
+                <span style={{ paddingRight: '16px' }}>{snippet.comment || snippetLabels[index]}</span>
                 {isSelected && (
                   <button
                     onClick={(e) => removeHighlight(index, e)}
@@ -145,13 +172,21 @@ function App() {
                 )}
               </div>
               <div style={{
-                fontSize: '12px',
+                fontSize: '13px',
                 color: '#666',
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                whiteSpace: 'nowrap'
+                fontStyle: snippet.boundingRect ? 'normal' : 'italic',
+                lineHeight: '1.4',
+                marginBottom: '8px',
+                fontWeight: snippet.boundingRect ? 'bold' : 'normal',
               }}>
-                {snippet.content}
+                {snippet.boundingRect ? '🖼 Area Highlight' : `"${snippet.content}"`}
+              </div>
+              <div style={{
+                fontSize: '11px',
+                color: '#999',
+                textAlign: 'right'
+              }}>
+                Page {snippet.pageNumber}
               </div>
             </div>
           );
@@ -245,6 +280,32 @@ function App() {
             borderRadius: '8px',
             padding: '4px 8px',
           }}>
+            {/* Area Toggle Button */}
+            <button
+              onClick={() => setIsAreaMode(!isAreaMode)}
+              title={isAreaMode ? "Disable Area Selection" : "Enable Area Selection"}
+              style={{
+                height: '32px',
+                padding: '0 12px',
+                marginRight: '8px',
+                border: isAreaMode ? '1px solid #1976d2' : '1px solid transparent',
+                borderRadius: '6px',
+                backgroundColor: isAreaMode ? '#e3f2fd' : '#fff',
+                color: isAreaMode ? '#1976d2' : '#555',
+                cursor: 'pointer',
+                fontSize: '13px',
+                fontWeight: 600,
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                transition: 'all 0.15s',
+                boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+              }}
+            >
+              {isAreaMode ? '🟦 Drawing Area' : '⬜ Draw Area'}
+            </button>
+
+            {/* Zoom Controls */}
             <button
               onClick={zoomOut}
               disabled={scale <= 0.5}
@@ -321,6 +382,8 @@ function App() {
         <PdfHighlighter
           file={PDF_URL}
           highlights={activeHighlights}
+          onHighlightAdd={handleHighlightAdd}
+          enableAreaSelection={isAreaMode}
           onLoadError={(error) => console.error('PDF load error:', error)}
           pageProps={{
             renderTextLayer: true,

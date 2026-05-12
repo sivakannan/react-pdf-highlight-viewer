@@ -1,9 +1,25 @@
 import type { DocumentProps, PageProps } from 'react-pdf';
 
 /**
- * Represents a text highlight in a PDF document
+ * Represents a normalized percentage-based bounding rectangle.
+ * All values are percentages (0-100) relative to the page dimensions.
+ */
+export interface HighlightRect {
+    left: number;
+    top: number;
+    width: number;
+    height: number;
+}
+
+/**
+ * Represents a text highlight or area highlight in a PDF document
  */
 export interface Highlight {
+    /**
+     * Optional unique identifier for this highlight (useful for scrolling)
+     */
+    id?: string;
+
     /**
      * The page number where the highlight should appear (1-indexed)
      */
@@ -11,9 +27,9 @@ export interface Highlight {
 
     /**
      * The exact text content to highlight
-     * Note: Must match the PDF's internal text representation exactly (unless caseSensitive is false)
+     * Optional for area highlights that only use boundingRect
      */
-    content: string;
+    content?: string;
 
     /**
      * Optional custom background color for this highlight
@@ -22,10 +38,22 @@ export interface Highlight {
     color?: string;
 
     /**
+     * Optional text comment attached to this highlight
+     */
+    comment?: string;
+
+    /**
      * Whether to match text case-sensitively
      * @default true
      */
     caseSensitive?: boolean;
+
+    /**
+     * Optional bounding rectangle for Coordinate-Based (Area) Highlights.
+     * If provided, the highlight will be drawn as a rectangle at these exact coordinates
+     * instead of searching for the text `content`.
+     */
+    boundingRect?: HighlightRect;
 }
 
 /**
@@ -79,6 +107,19 @@ export interface PdfHighlighterProps extends Omit<DocumentProps, 'children'> {
      * Allows customization of page rendering (scale, renderMode, etc.)
      */
     pageProps?: Omit<PageProps, 'pageNumber' | 'width' | 'onGetTextSuccess'>;
+
+    /**
+     * Callback fired when a user selects text and saves a new highlight
+     */
+    onHighlightAdd?: (highlight: Omit<Highlight, 'id'>) => void;
+
+    /**
+     * Whether to enable Area Selection mode.
+     * When true, clicking and dragging on the PDF will draw a coordinate-based rectangle
+     * instead of selecting text natively.
+     * @default false
+     */
+    enableAreaSelection?: boolean;
 }
 
 /**

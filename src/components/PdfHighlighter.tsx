@@ -31,10 +31,90 @@ export const PdfHighlighter: React.FC<PdfHighlighterProps> = ({
     defaultHighlightColor = '#ffeb3b',
     defaultCaseSensitive = true,
     pageProps,
+    onHighlightAdd,
+    enableAreaSelection = false,
     // Destructure all other DocumentProps to pass through
     ...documentProps
 }) => {
     const [numPages, setNumPages] = useState<number>(0);
+    const [selectionContext, setSelectionContext] = useState<{ 
+        content: string; 
+        pageNumber: number; 
+        rect: DOMRect;
+        boundingRect?: { left: number; top: number; width: number; height: number };
+    } | null>(null);
+    const [commentInput, setCommentInput] = useState('');
+
+    const handleMouseUp = useCallback(() => {
+        if (enableAreaSelection) return; // Handled by PageHighlighter
+        
+        const selection = window.getSelection();
+        if (!selection || selection.isCollapsed) return;
+
+        const range = selection.getRangeAt(0);
+        const textContent = selection.toString().trim();
+        if (!textContent) return;
+
+        // Check if the selection is inside a text layer
+        let node = selection.anchorNode;
+        let isInsidePdf = false;
+        let pageNumber = 1;
+
+        while (node && node !== document.body) {
+            if (node.nodeType === Node.ELEMENT_NODE) {
+                const el = node as HTMLElement;
+                if (el.classList && el.classList.contains('react-pdf__Page')) {
+                    isInsidePdf = true;
+                    const pageAttr = el.getAttribute('data-page-number');
+                    if (pageAttr) pageNumber = parseInt(pageAttr, 10);
+                    break;
+                }
+            }
+            if (node.parentNode) {
+                node = node.parentNode;
+            } else {
+                break;
+            }
+        }
+
+        if (isInsidePdf) {
+            const rect = range.getBoundingClientRect();
+            setSelectionContext({ content: textContent, pageNumber, rect });
+            setCommentInput('');
+        }
+    }, []);
+
+    const handleMouseDown = useCallback((e: MouseEvent) => {
+        // If clicking outside the popover, clear selection
+        const popover = document.getElementById('pdf-highlight-popover');
+        if (popover && popover.contains(e.target as Node)) {
+            return; // Clicked inside popover
+        }
+        setSelectionContext(null);
+    }, []);
+
+    useEffect(() => {
+        document.addEventListener('mouseup', handleMouseUp);
+        document.addEventListener('mousedown', handleMouseDown);
+        return () => {
+            document.removeEventListener('mouseup', handleMouseUp);
+            document.removeEventListener('mousedown', handleMouseDown);
+        };
+    }, [handleMouseUp, handleMouseDown]);
+
+    const handleSaveHighlight = () => {
+        if (selectionContext && onHighlightAdd) {
+            onHighlightAdd({
+                content: selectionContext.content,
+                pageNumber: selectionContext.pageNumber,
+                comment: commentInput,
+                color: defaultHighlightColor,
+                boundingRect: selectionContext.boundingRect
+            });
+            setSelectionContext(null);
+            window.getSelection()?.removeAllRanges();
+        }
+    };
 
     const handleDocumentLoadSuccess = useCallback(({ numPages }: { numPages: number }) => {
         setNumPages(numPages);
@@ -63,9 +143,91 @@ export const PdfHighlighter: React.FC<PdfHighlighterProps> = ({
                         defaultColor={defaultHighlightColor}
                         defaultCaseSensitive={defaultCaseSensitive}
                         pageProps={pageProps}
+                        enableAreaSelection={enableAreaSelection}
+                        onAreaSelect={(rect, boundingRect) => {
+                            setSelectionContext({
+                                content: '', // Empty for area highlights
+                                pageNumber,
+                                rect,
+                                boundingRect
+                            });
+                            setCommentInput('');
+                        }}
                     />
                 ))}
             </Document>
+
+            {/* Annotation Popover */}
+            {selectionContext && onHighlightAdd && (
+                <div
+                    id="pdf-highlight-popover"
+                    style={{
+                        position: 'fixed',
+                        top: selectionContext.rect.top - 55,
+                        left: selectionContext.rect.left + (selectionContext.rect.width / 2),
+                        transform: 'translateX(-50%)',
+                        backgroundColor: '#fff',
+                        boxShadow: '0 4px 16px rgba(0,0,0,0.2)',
+                        borderRadius: '6px',
+                        padding: '8px',
+                        zIndex: 10000,
+                        display: 'flex',
+                        gap: '8px',
+                        alignItems: 'center',
+                        border: '1px solid #ddd'
+                    }}
+                >
+                    <input
+                        autoFocus
+                        type="text"
+                        placeholder="Add a comment..."
+                        value={commentInput}
+                        onChange={(e) => setCommentInput(e.target.value)}
+                        onKeyDown={(e) => {
+                            if (e.key === 'Enter') handleSaveHighlight();
+                            if (e.key === 'Escape') setSelectionContext(null);
+                        }}
+                        style={{
+                            padding: '6px 10px',
+                            border: '1px solid #ccc',
+                            borderRadius: '4px',
+                            fontSize: '13px',
+                            width: '200px',
+                            outline: 'none',
+                            fontFamily: 'inherit'
+                        }}
+                    />
+                    <button
+                        onClick={handleSaveHighlight}
+                        style={{
+                            backgroundColor: '#000',
+                            color: '#fff',
+                            border: 'none',
+                            borderRadius: '4px',
+                            padding: '6px 12px',
+                            cursor: 'pointer',
+                            fontSize: '13px',
+                            fontWeight: '600',
+                            fontFamily: 'inherit'
+                        }}
+                    >
+                        Save
+                    </button>
+                    {/* Little triangle pointer below popover */}
+                    <div style={{
+                        position: 'absolute',
+                        bottom: '-6px',
+                        left: '50%',
+                        transform: 'translateX(-50%)',
+                        width: 0,
+                        height: 0,
+                        borderLeft: '6px solid transparent',
+                        borderRight: '6px solid transparent',
+                        borderTop: '6px solid #fff',
+                        filter: 'drop-shadow(0 2px 2px rgba(0,0,0,0.1))'
+                    }} />
+                </div>
+            )}
         </div>
     );
 };
@@ -80,6 +242,8 @@ interface PageHighlighterProps {
     defaultColor: string;
     defaultCaseSensitive: boolean;
     pageProps?: Omit<PageProps, 'pageNumber' | 'width' | 'onGetTextSuccess'>;
+    enableAreaSelection?: boolean;
+    onAreaSelect?: (rect: DOMRect, boundingRect: { left: number; top: number; width: number; height: number }) => void;
 }
 
 /**
@@ -92,11 +256,70 @@ const PageHighlighter: React.FC<PageHighlighterProps> = ({
     highlights,
     defaultColor,
     defaultCaseSensitive,
-    pageProps
+    pageProps,
+    enableAreaSelection,
+    onAreaSelect
 }) => {
     const pageRef = useRef<HTMLDivElement>(null);
     const [textLayerReady, setTextLayerReady] = useState(false);
     const originalTextsRef = useRef<Map<Element, string>>(new Map());
+
+    // State for drawing an area highlight
+    const [drawing, setDrawing] = useState<{ startX: number; startY: number; currentX: number; currentY: number } | null>(null);
+
+    const handleMouseDown = (e: React.MouseEvent) => {
+        if (!enableAreaSelection || !pageRef.current) return;
+        e.preventDefault(); // Prevent text selection
+        
+        const rect = pageRef.current.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+        
+        setDrawing({ startX: x, startY: y, currentX: x, currentY: y });
+    };
+
+    const handleMouseMove = (e: React.MouseEvent) => {
+        if (!enableAreaSelection || !drawing || !pageRef.current) return;
+        
+        const rect = pageRef.current.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+        
+        setDrawing(prev => prev ? { ...prev, currentX: Math.max(0, Math.min(x, rect.width)), currentY: Math.max(0, Math.min(y, rect.height)) } : null);
+    };
+
+    const handleMouseUp = () => {
+        if (!enableAreaSelection || !drawing || !pageRef.current) return;
+        
+        const pageEl = pageRef.current;
+        const width = Math.abs(drawing.currentX - drawing.startX);
+        const height = Math.abs(drawing.currentY - drawing.startY);
+        
+        // Only trigger if the area is large enough
+        if (width > 5 && height > 5 && onAreaSelect) {
+            const left = Math.min(drawing.startX, drawing.currentX);
+            const top = Math.min(drawing.startY, drawing.currentY);
+            
+            // Calculate percentages
+            const percentLeft = (left / pageEl.clientWidth) * 100;
+            const percentTop = (top / pageEl.clientHeight) * 100;
+            const percentWidth = (width / pageEl.clientWidth) * 100;
+            const percentHeight = (height / pageEl.clientHeight) * 100;
+
+            // Get viewport coordinates for the popover
+            const pageRect = pageEl.getBoundingClientRect();
+            const domRect = new DOMRect(pageRect.left + left, pageRect.top + top, width, height);
+
+            onAreaSelect(domRect, {
+                left: percentLeft,
+                top: percentTop,
+                width: percentWidth,
+                height: percentHeight
+            });
+        }
+        
+        setDrawing(null);
+    };
 
     /**
      * Callback fired when react-pdf finishes rendering the text layer.
@@ -178,33 +401,46 @@ const PageHighlighter: React.FC<PageHighlighterProps> = ({
 
         // Step 1: Find ALL highlight ranges in the full text
         interface HighlightRange {
+            id?: string;
             start: number;
             end: number;
             color: string;
+            comment?: string;
         }
         const allRanges: HighlightRange[] = [];
 
         for (const highlight of pageHighlights) {
-            const { content, color, caseSensitive } = highlight;
+            const { id, content, color, caseSensitive, comment } = highlight;
             if (!content) continue;
 
             const isCaseSensitive = caseSensitive !== undefined ? caseSensitive : defaultCaseSensitive;
             const highlightColor = color || defaultColor;
 
-            let startIndex: number;
-            if (isCaseSensitive) {
-                startIndex = fullText.indexOf(content);
-            } else {
-                startIndex = fullText.toLowerCase().indexOf(content.toLowerCase());
+            // Escape special regex characters in the search content
+            const escapeRegExp = (string: string) => {
+                return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            };
+
+            // Replace any whitespace in the search string with \s* to handle PDF layout variations
+            // (e.g. newlines from selection vs spaces in DOM)
+            const regexStr = escapeRegExp(content).replace(/\s+/g, '\\s*');
+            
+            try {
+                const regex = new RegExp(regexStr, isCaseSensitive ? '' : 'i');
+                const match = regex.exec(fullText);
+
+                if (!match) continue;
+
+                allRanges.push({
+                    id: id,
+                    start: match.index,
+                    end: match.index + match[0].length,
+                    color: highlightColor,
+                    comment: comment,
+                });
+            } catch (err) {
+                console.warn("Failed to parse highlight text as regex:", err);
             }
-
-            if (startIndex === -1) continue;
-
-            allRanges.push({
-                start: startIndex,
-                end: startIndex + content.length,
-                color: highlightColor,
-            });
         }
 
         if (allRanges.length === 0) return;
@@ -218,9 +454,12 @@ const PageHighlighter: React.FC<PageHighlighterProps> = ({
 
             // Find all highlight ranges that overlap with this span
             interface SpanSegment {
+                id?: string;
                 localStart: number;
                 localEnd: number;
                 color: string;
+                comment?: string;
+                isFirstSegment: boolean;
             }
             const segments: SpanSegment[] = [];
 
@@ -230,9 +469,12 @@ const PageHighlighter: React.FC<PageHighlighterProps> = ({
 
                 if (overlapStart < overlapEnd) {
                     segments.push({
+                        id: range.id,
                         localStart: overlapStart - spanStart,
                         localEnd: overlapEnd - spanStart,
                         color: range.color,
+                        comment: range.comment,
+                        isFirstSegment: overlapStart === range.start, // True if this is the very beginning of the highlight
                     });
                 }
             }
@@ -255,6 +497,16 @@ const PageHighlighter: React.FC<PageHighlighterProps> = ({
                     const mark = document.createElement('mark');
                     mark.style.backgroundColor = seg.color;
                     mark.style.color = '#000';
+                    
+                    if (seg.id && seg.isFirstSegment) {
+                        mark.id = seg.id;
+                    }
+
+                    if (seg.comment) {
+                        mark.setAttribute('data-comment', seg.comment);
+                        mark.className = 'has-comment';
+                    }
+                    
                     mark.textContent = spanText.slice(seg.localStart, seg.localEnd);
                     span.appendChild(mark);
 
@@ -271,14 +523,68 @@ const PageHighlighter: React.FC<PageHighlighterProps> = ({
         });
     }, [textLayerReady, highlights, pageNumber, defaultColor, defaultCaseSensitive]);
 
+    // Separate highlights that are area-based (have boundingRect)
+    const pageHighlights = highlights.filter(h => h.pageNumber === pageNumber);
+    const areaHighlights = pageHighlights.filter(h => h.boundingRect);
+
     return (
-        <div ref={pageRef} data-testid={`pdf-page-highlighter-${pageNumber}`}>
+        <div 
+            ref={pageRef} 
+            data-testid={`pdf-page-highlighter-${pageNumber}`}
+            style={{ position: 'relative', display: 'inline-block' }}
+            onMouseDown={handleMouseDown}
+            onMouseMove={handleMouseMove}
+            onMouseUp={handleMouseUp}
+            onMouseLeave={() => setDrawing(null)}
+        >
             <Page
                 pageNumber={pageNumber}
                 width={width}
                 onGetTextSuccess={handleTextLayerReady}
                 {...pageProps}
             />
+
+            {/* Render saved area highlights */}
+            {areaHighlights.map((h, i) => {
+                if (!h.boundingRect) return null;
+                return (
+                    <div
+                        key={`area-${i}`}
+                        id={h.id}
+                        className={h.comment ? 'has-comment' : ''}
+                        data-comment={h.comment}
+                        style={{
+                            position: 'absolute',
+                            left: `${h.boundingRect.left}%`,
+                            top: `${h.boundingRect.top}%`,
+                            width: `${h.boundingRect.width}%`,
+                            height: `${h.boundingRect.height}%`,
+                            backgroundColor: h.color || defaultColor,
+                            opacity: 0.4,
+                            pointerEvents: 'auto',
+                            cursor: h.comment ? 'help' : 'default',
+                            zIndex: 2, // Above text layer
+                        }}
+                    />
+                );
+            })}
+
+            {/* Render current drawing area */}
+            {drawing && (
+                <div
+                    style={{
+                        position: 'absolute',
+                        left: Math.min(drawing.startX, drawing.currentX),
+                        top: Math.min(drawing.startY, drawing.currentY),
+                        width: Math.abs(drawing.currentX - drawing.startX),
+                        height: Math.abs(drawing.currentY - drawing.startY),
+                        backgroundColor: 'rgba(33, 150, 243, 0.3)',
+                        border: '1px solid #2196f3',
+                        pointerEvents: 'none',
+                        zIndex: 10,
+                    }}
+                />
+            )}
         </div>
     );
 };

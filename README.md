@@ -10,9 +10,11 @@ A lightweight, production-ready React library for rendering PDFs with text highl
 
 ✨ **Simple API** - Just pass a PDF file and an array of highlights  
 🎨 **Customizable Colors** - Set default or per-highlight colors  
+🖱️ **Interactive Text Selection** - Native text dragging with floating annotation popovers
+🖼️ **Area Highlights** - Draw bounding boxes over charts or scanned pages
 🔤 **Case-Insensitive Matching** - Optional case-insensitive text matching  
-📥 **Download with Highlights** - Export PDFs with highlights baked in using `downloadHighlightedPdf()`  
-🔍 **Zoom Support** - Highlights persist across zoom level changes  
+📥 **Download with Highlights** - Export PDFs with annotations natively baked in via `downloadHighlightedPdf()`  
+🔍 **Zoom Support** - Both Text and Area Highlights scale automatically when zoomed
 📱 **Responsive** - Automatically adapts to container width  
 ⚡ **Performance Optimized** - Efficient DOM manipulation and memoization  
 🔄 **Dynamic Updates** - Add/remove highlights on the fly  
@@ -71,6 +73,8 @@ Main component for rendering PDFs with highlights.
 | `loading` | `React.ReactNode` | `<div>Loading PDF...</div>` | Custom loading component |
 | `defaultHighlightColor` | `string` | `'#ffeb3b'` | Default highlight background color |
 | `defaultCaseSensitive` | `boolean` | `true` | Default case sensitivity for all highlights |
+| `onHighlightAdd` | `function` | `undefined` | Callback fired when user selects text or draws an area and saves |
+| `enableAreaSelection` | `boolean` | `false` | When true, dragging draws an Area Rectangle instead of selecting text |
 | `pageProps` | `Omit<PageProps, ...>` | `undefined` | Additional props to pass to each Page component |
 | `...documentProps` | `DocumentProps` | - | All other react-pdf Document props are supported |
 
@@ -79,9 +83,16 @@ Main component for rendering PDFs with highlights.
 ```typescript
 interface Highlight {
   pageNumber: number;     // 1-indexed page number
-  content: string;        // Exact text to highlight
+  content?: string;       // Exact text to highlight (optional if boundingRect is provided)
   color?: string;         // Optional custom color (overrides default)
+  comment?: string;       // Tooltip comment when hovering over highlight
   caseSensitive?: boolean; // Whether to match case-sensitively (default: true)
+  boundingRect?: {        // Draw a coordinate-based Area Highlight
+    left: number;         // Responsive percentage (0-100)
+    top: number;          // Responsive percentage (0-100)
+    width: number;        // Responsive percentage (0-100)
+    height: number;       // Responsive percentage (0-100)
+  }
 }
 ```
 
@@ -363,7 +374,15 @@ For large PDFs with many highlights:
 
 ## Changelog
 
-### v1.2.0 (2026-04-30)
+### v1.3.0 (2026-05-12)
+
+**Added:**
+- ✅ **Interactive Text Selection** — Users can drag to select text and a floating popover automatically appears to save annotations. Triggers `onHighlightAdd`.
+- ✅ **Coordinate-Based Area Highlights** — Pass `enableAreaSelection={true}` to draw bounding boxes over charts or scanned pages. Stored responsively via percentages (`boundingRect`).
+- ✅ **Multi-line Regex Matching** — Highlighting logic now uses robust regex matching that natively ignores internal PDF whitespace and newline discrepancies.
+- ✅ **Area Export** — `downloadHighlightedPdf` now flawlessly renders both Text Highlights and Area Highlights onto the exported PDF.
+
+### v1.2.1 (2026-05-11)
 
 **Added:**
 - ✅ `downloadHighlightedPdf()` utility — export PDFs with highlights baked in using jsPDF + canvas rendering
