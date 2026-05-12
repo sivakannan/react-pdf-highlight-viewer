@@ -175,8 +175,8 @@ export async function downloadHighlightedPdf(
         if (!h.pageNumber || h.pageNumber < 1) {
             throw new Error(`Invalid pageNumber: ${h.pageNumber}. Must be >= 1.`);
         }
-        if (!h.content || typeof h.content !== 'string') {
-            throw new Error('Each highlight must have a non-empty "content" string.');
+        if (!h.boundingRect && (!h.content || typeof h.content !== 'string')) {
+            throw new Error('Each highlight must have either a non-empty "content" string or a "boundingRect".');
         }
     }
 
